@@ -1,6 +1,6 @@
 ---
 - name: Deploy Application Updates
-  hosts: webservers
+  hosts: localhost
   become: yes
   serial: 1  # Rolling deployment - one server at a time
 
