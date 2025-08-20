@@ -1,0 +1,68 @@
+---
+- name: Deploy Application Updates
+  hosts: webservers
+  become: yes
+  serial: 1  # Rolling deployment - one server at a time
+
+  vars:
+    app_version: "{{ app_version | default('latest') }}"
+
+  tasks:
+    - name: Display deployment info
+      debug:
+        msg: "Deploying {{ app_name }} version {{ app_version }} to {{ inventory_hostname }}"
+
+    - name: Stop application service
+      service:
+        name: "{{ app_name }}"
+        state: stopped
+
+    - name: Update application code
+      copy:
+        content: "{{ app_content }}"
+        dest: "{{ app_dir }}/app.py"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0644'
+        backup: yes
+
+    - name: Start application service
+      service:
+        name: "{{ app_name }}"
+        state: started
+
+    - name: Wait for application to start
+      wait_for:
+        port: "{{ app_port }}"
+        delay: 3
+        timeout: 30
+
+    - name: Verify application health
+      uri:
+        url: "http://{{ ansible_default_ipv4.address }}/health"
+        method: GET
+      delegate_to: localhost
+      retries: 3
+      delay: 5
+
+    - name: Deployment completed
+      debug:
+        msg: "Successfully deployed to {{ inventory_hostname }}"
+
+- name: Verify Load Balancer After Deployment
+  hosts: loadbalancers
+  
+  tasks:
+    - name: Test load balancer after deployment
+      uri:
+        url: "http://{{ ansible_default_ipv4.address }}/"
+        method: GET
+      delegate_to: localhost
+      register: final_test
+      retries: 5
+      delay: 3
+
+    - name: Show final test results
+      debug:
+        var: final_test.json
+      when: final_test.json is defined

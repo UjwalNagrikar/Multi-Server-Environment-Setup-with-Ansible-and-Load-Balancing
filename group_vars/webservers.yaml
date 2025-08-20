@@ -1,0 +1,32 @@
+---
+# Web server specific configuration
+nginx_port: 80
+app_user: webapp
+app_dir: /var/www/{{ app_name }}
+
+# Sample application (simple Python Flask app)
+app_content: |
+  from flask import Flask, jsonify
+  import socket
+  
+  app = Flask(__name__)
+  
+  @app.route('/')
+  def hello():
+      hostname = socket.gethostname()
+      return jsonify({
+          'message': 'Hello from Web Server!',
+          'server': hostname,
+          'status': 'running'
+      })
+  
+  @app.route('/health')
+  def health():
+      return jsonify({'status': 'healthy'})
+  
+  if __name__ == '__main__':
+      app.run(host='0.0.0.0', port={{ app_port }})
+
+requirements_txt: |
+  Flask==2.3.3
+  gunicorn==21.2.0

@@ -1,0 +1,18 @@
+app_name: myapp
+app_port: 3000
+domain_name: example.local
+
+# Common packages
+common_packages:
+  - curl
+  - wget
+  - vim
+  - htop
+  - git
+
+# Security settings
+allowed_ports:
+  - 22
+  - 80
+  - 443
+  - "{{ app_port }}"

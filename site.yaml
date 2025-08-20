@@ -1,0 +1,58 @@
+---
+- name: Configure Web Servers
+  hosts: webservers
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Wait for connection
+      wait_for_connection:
+        timeout: 60
+
+  roles:
+    - webserver
+
+  post_tasks:
+    - name: Verify web server is running
+      uri:
+        url: "http://{{ ansible_default_ipv4.address }}/health"
+        method: GET
+      delegate_to: localhost
+      retries: 3
+      delay: 5
+
+- name: Configure Load Balancers
+  hosts: loadbalancers
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Wait for connection
+      wait_for_connection:
+        timeout: 60
+
+  roles:
+    - loadbalancer
+
+  post_tasks:
+    - name: Verify load balancer is running
+      uri:
+        url: "http://{{ ansible_default_ipv4.address }}/health-lb"
+        method: GET
+      delegate_to: localhost
+      retries: 3
+      delay: 5
+
+    - name: Test load balancing
+      uri:
+        url: "http://{{ ansible_default_ipv4.address }}/"
+        method: GET
+      delegate_to: localhost
+      register: lb_test
+      retries: 3
+      delay: 2
+
+    - name: Show load balancer test result
+      debug:
+        var: lb_test.json
+      when: lb_test.json is defined

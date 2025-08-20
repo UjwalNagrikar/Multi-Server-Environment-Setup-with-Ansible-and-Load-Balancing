@@ -1,0 +1,8 @@
+---
+# Load balancer configuration
+lb_method: round_robin
+backend_port: 80
+health_check_path: /health
+
+# Get backend servers from inventory
+backend_servers: "{{ groups['webservers'] }}"

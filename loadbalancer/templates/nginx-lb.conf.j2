@@ -1,0 +1,53 @@
+`nginx
+upstream backend_servers {
+    {% for host in backend_servers %}
+    server {{ hostvars[host]['ansible_default_ipv4']['address'] }}:{{ backend_port }};
+    {% endfor %}
+}
+
+server {
+    listen 80;
+    server_name {{ domain_name }};
+
+    # Load balancer health check
+    location /health-lb {
+        access_log off;
+        return 200 "Load Balancer OK\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Proxy to backend servers
+    location / {
+        proxy_pass http://backend_servers;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Health check settings
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 10s;
+        proxy_read_timeout 10s;
+        
+        # Retry failed requests to other servers
+        proxy_next_upstream error timeout invalid_header http_500 http_502 http_503;
+    }
+
+    # Backend health monitoring
+    location /health {
+        proxy_pass http://backend_servers/health;
+        access_log off;
+    }
+
+    # Basic security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+}
+
+# Log format for debugging
+log_format upstreamlog '$server_name to: $upstream_addr [$request] '
+    'upstream_response_time $upstream_response_time '
+    'request_time $request_time ';
+
+access_log /var/log/nginx/access.log upstreamlog;
