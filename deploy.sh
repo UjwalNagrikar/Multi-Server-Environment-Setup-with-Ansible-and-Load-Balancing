@@ -22,7 +22,11 @@ print_error() {
 }
 
 # Default values
+<<<<<<< HEAD
 PLAYBOOK="site.yaml"
+=======
+PLAYBOOK="site.yml"
+>>>>>>> 0d56f21 (Initial commit)
 ENVIRONMENT="all"
 CHECK_MODE=""
 
@@ -44,7 +48,11 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
+<<<<<<< HEAD
             echo "  -p, --playbook PLAYBOOK    Specify playbook (default: site.yaml)"
+=======
+            echo "  -p, --playbook PLAYBOOK    Specify playbook (default: site.yml)"
+>>>>>>> 0d56f21 (Initial commit)
             echo "  -e, --environment ENV      Target environment (default: all)"
             echo "  -c, --check               Run in check mode (dry run)"
             echo "  -h, --help                Show this help"
@@ -68,8 +76,13 @@ print_status "Playbook: $PLAYBOOK"
 print_status "Target: $ENVIRONMENT"
 
 # Check if inventory file exists
+<<<<<<< HEAD
 if [[ ! -f "inventory.yaml" ]]; then
     print_error "inventory.yaml not found!"
+=======
+if [[ ! -f "inventory.yml" ]]; then
+    print_error "inventory.yml not found!"
+>>>>>>> 0d56f21 (Initial commit)
     exit 1
 fi
 
@@ -107,7 +120,11 @@ else
 fi
 
 # Health check
+<<<<<<< HEAD
 if [[ "$CHECK_MODE" == "" && "$PLAYBOOK" == "site.yaml" ]]; then
+=======
+if [[ "$CHECK_MODE" == "" && "$PLAYBOOK" == "site.yml" ]]; then
+>>>>>>> 0d56f21 (Initial commit)
     print_status "Running health checks..."
     
     # Check web servers

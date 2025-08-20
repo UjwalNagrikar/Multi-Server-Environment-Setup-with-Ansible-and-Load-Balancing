@@ -1,0 +1,69 @@
+---
+- name: Install Python packages
+  package:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+    state: present
+  become: yes
+
+- name: Create application directory
+  file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+
+- name: Create Python virtual environment
+  command: python3 -m venv "{{ app_dir }}/venv"
+  args:
+    creates: "{{ app_dir }}/venv"
+
+- name: Install Flask and dependencies
+  pip:
+    name:
+      - Flask==2.3.3
+      - gunicorn==21.2.0
+    virtualenv: "{{ app_dir }}/venv"
+
+- name: Create sample Flask application
+  copy:
+    content: "{{ app_content }}"
+    dest: "{{ app_dir }}/app.py"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+
+- name: Create requirements.txt
+  copy:
+    content: "{{ requirements_txt }}"
+    dest: "{{ app_dir }}/requirements.txt"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Kill any existing Flask processes on this port
+  shell: "pkill -f 'python.*{{ app_port }}' || true"
+  ignore_errors: yes
+
+- name: Start Flask application
+  shell: |
+    cd {{ app_dir }}
+    export APP_PORT={{ app_port }}
+    nohup {{ app_dir }}/venv/bin/python app.py > {{ app_dir }}/app.log 2>&1 &
+    echo $! > {{ app_dir }}/app.pid
+  async: 10
+  poll: 0
+
+- name: Wait for application to start
+  wait_for:
+    port: "{{ app_port }}"
+    delay: 2
+    timeout: 30
+
+- name: Verify application is running
+  uri:
+    url: "http://localhost:{{ app_port }}/health"
+    method: GET
+  delegate_to: localhost

@@ -1,0 +1,51 @@
+---
+- name: Install nginx
+  package:
+    name: nginx
+    state: present
+  become: yes
+
+- name: Stop default nginx service
+  service:
+    name: nginx
+    state: stopped
+  become: yes
+  ignore_errors: yes
+
+- name: Create nginx config directory for this test
+  file:
+    path: "/tmp/nginx_{{ nginx_port }}"
+    state: directory
+    mode: '0755'
+
+- name: Configure Nginx load balancer
+  template:
+    src: nginx-lb.conf.j2
+    dest: "/tmp/nginx_{{ nginx_port }}/nginx.conf"
+
+- name: Create nginx log directory
+  file:
+    path: "/tmp/nginx_{{ nginx_port }}/logs"
+    state: directory
+    mode: '0755'
+
+- name: Kill any existing nginx processes on this port
+  shell: "pkill -f 'nginx.*{{ nginx_port }}' || true"
+  ignore_errors: yes
+
+- name: Start nginx with custom config
+  shell: |
+    nginx -c /tmp/nginx_{{ nginx_port }}/nginx.conf
+  become: yes
+
+- name: Wait for nginx to start
+  wait_for:
+    port: "{{ nginx_port }}"
+    delay: 2
+    timeout: 30
+
+- name: Test load balancer configuration
+  uri:
+    url: "http://localhost:{{ nginx_port }}/health-lb"
+    method: GET
+  delegate_to: localhost
