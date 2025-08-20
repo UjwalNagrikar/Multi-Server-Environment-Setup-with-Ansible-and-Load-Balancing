@@ -1,4 +1,3 @@
-`nginx
 upstream backend_servers {
     {% for host in backend_servers %}
     server {{ hostvars[host]['ansible_default_ipv4']['address'] }}:{{ backend_port }};
