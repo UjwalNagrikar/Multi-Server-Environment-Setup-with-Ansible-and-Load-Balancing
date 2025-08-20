@@ -22,7 +22,7 @@ print_error() {
 }
 
 # Default values
-PLAYBOOK="site.yml"
+PLAYBOOK="site.yaml"
 ENVIRONMENT="all"
 CHECK_MODE=""
 
@@ -44,7 +44,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
-            echo "  -p, --playbook PLAYBOOK    Specify playbook (default: site.yml)"
+            echo "  -p, --playbook PLAYBOOK    Specify playbook (default: site.yaml)"
             echo "  -e, --environment ENV      Target environment (default: all)"
             echo "  -c, --check               Run in check mode (dry run)"
             echo "  -h, --help                Show this help"
@@ -68,8 +68,8 @@ print_status "Playbook: $PLAYBOOK"
 print_status "Target: $ENVIRONMENT"
 
 # Check if inventory file exists
-if [[ ! -f "inventory.yml" ]]; then
-    print_error "inventory.yml not found!"
+if [[ ! -f "inventory.yaml" ]]; then
+    print_error "inventory.yaml not found!"
     exit 1
 fi
 
@@ -107,7 +107,7 @@ else
 fi
 
 # Health check
-if [[ "$CHECK_MODE" == "" && "$PLAYBOOK" == "site.yml" ]]; then
+if [[ "$CHECK_MODE" == "" && "$PLAYBOOK" == "site.yaml" ]]; then
     print_status "Running health checks..."
     
     # Check web servers
