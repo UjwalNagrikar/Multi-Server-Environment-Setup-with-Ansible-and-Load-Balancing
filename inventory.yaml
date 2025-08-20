@@ -1,0 +1,23 @@
+all:
+  children:
+    webservers:
+      hosts:
+        web1:
+          ansible_host: localhost
+          app_port: 3001
+        web2:
+          ansible_host: localhost
+          app_port: 3002
+        web3:
+          ansible_host: localhost
+          app_port: 3003
+    
+    loadbalancers:
+      hosts:
+        lb1:
+          ansible_host: localhost
+          nginx_port: 8080
+
+  vars:
+    ansible_connection: local
+    ansible_python_interpreter: /usr/bin/python3

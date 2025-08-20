@@ -1,127 +1,69 @@
 ---
-- name: Update package cache
-  apt:
-    update_cache: yes
-  become: yes
-
-- name: Install common packages
-  package:
-    name: "{{ common_packages }}"
-    state: present
-  become: yes
-
 - name: Install Python packages
   package:
     name:
       - python3
       - python3-pip
-      - nginx
+      - python3-venv
     state: present
-  become: yes
-
-- name: Create application user
-  user:
-    name: "{{ app_user }}"
-    system: yes
-    shell: /bin/bash
-    home: "{{ app_dir }}"
-    create_home: yes
   become: yes
 
 - name: Create application directory
   file:
     path: "{{ app_dir }}"
     state: directory
-    owner: "{{ app_user }}"
-    group: "{{ app_user }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0755'
-  become: yes
+
+- name: Create Python virtual environment
+  command: python3 -m venv "{{ app_dir }}/venv"
+  args:
+    creates: "{{ app_dir }}/venv"
 
 - name: Install Flask and dependencies
   pip:
     name:
       - Flask==2.3.3
       - gunicorn==21.2.0
-    state: present
-  become: yes
+    virtualenv: "{{ app_dir }}/venv"
 
 - name: Create sample Flask application
   copy:
     content: "{{ app_content }}"
     dest: "{{ app_dir }}/app.py"
-    owner: "{{ app_user }}"
-    group: "{{ app_user }}"
-    mode: '0644'
-  become: yes
-  notify: restart application
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
 
 - name: Create requirements.txt
   copy:
     content: "{{ requirements_txt }}"
     dest: "{{ app_dir }}/requirements.txt"
-    owner: "{{ app_user }}"
-    group: "{{ app_user }}"
-  become: yes
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
 
-- name: Create systemd service file
-  copy:
-    content: |
-      [Unit]
-      Description={{ app_name }} Flask Application
-      After=network.target
+- name: Kill any existing Flask processes on this port
+  shell: "pkill -f 'python.*{{ app_port }}' || true"
+  ignore_errors: yes
 
-      [Service]
-      User={{ app_user }}
-      Group={{ app_user }}
-      WorkingDirectory={{ app_dir }}
-      ExecStart=/usr/local/bin/gunicorn --bind 0.0.0.0:{{ app_port }} --workers 2 app:app
-      Restart=always
+- name: Start Flask application
+  shell: |
+    cd {{ app_dir }}
+    export APP_PORT={{ app_port }}
+    nohup {{ app_dir }}/venv/bin/python app.py > {{ app_dir }}/app.log 2>&1 &
+    echo $! > {{ app_dir }}/app.pid
+  async: 10
+  poll: 0
 
-      [Install]
-      WantedBy=multi-user.target
-    dest: "/etc/systemd/system/{{ app_name }}.service"
-    mode: '0644'
-  become: yes
-  notify:
-    - reload systemd
-    - restart application
+- name: Wait for application to start
+  wait_for:
+    port: "{{ app_port }}"
+    delay: 2
+    timeout: 30
 
-- name: Configure Nginx
-  template:
-    src: nginx.conf.j2
-    dest: /etc/nginx/sites-available/{{ app_name }}
-    backup: yes
-  become: yes
-  notify: restart nginx
-
-- name: Enable Nginx site
-  file:
-    src: /etc/nginx/sites-available/{{ app_name }}
-    dest: /etc/nginx/sites-enabled/{{ app_name }}
-    state: link
-  become: yes
-  notify: restart nginx
-
-- name: Remove default Nginx site
-  file:
-    path: /etc/nginx/sites-enabled/default
-    state: absent
-  become: yes
-  notify: restart nginx
-
-- name: Configure firewall
-  ufw:
-    rule: allow
-    port: "{{ item }}"
-  loop: "{{ allowed_ports }}"
-  become: yes
-
-- name: Start and enable services
-  service:
-    name: "{{ item }}"
-    state: started
-    enabled: yes
-  loop:
-    - nginx
-    - "{{ app_name }}"
-  become: yes
+- name: Verify application is running
+  uri:
+    url: "http://localhost:{{ app_port }}/health"
+    method: GET
+  delegate_to: localhost

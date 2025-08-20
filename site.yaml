@@ -1,7 +1,7 @@
 ---
 - name: Configure Web Servers
   hosts: webservers
-  become: yes
+  become: no
   gather_facts: yes
   
   tasks:
@@ -15,7 +15,7 @@
   post_tasks:
     - name: Verify web server is running
       uri:
-        url: "http://{{ ansible_default_ipv4.address }}/health"
+        url: "http://localhost:{{ app_port }}/health"
         method: GET
       delegate_to: localhost
       retries: 3
@@ -23,7 +23,7 @@
 
 - name: Configure Load Balancers
   hosts: loadbalancers
-  become: yes
+  become: no
   gather_facts: yes
   
   tasks:
@@ -37,7 +37,7 @@
   post_tasks:
     - name: Verify load balancer is running
       uri:
-        url: "http://{{ ansible_default_ipv4.address }}/health-lb"
+        url: "http://localhost:{{ nginx_port }}/health-lb"
         method: GET
       delegate_to: localhost
       retries: 3
@@ -45,7 +45,7 @@
 
     - name: Test load balancing
       uri:
-        url: "http://{{ ansible_default_ipv4.address }}/"
+        url: "http://localhost:{{ nginx_port }}/"
         method: GET
       delegate_to: localhost
       register: lb_test

@@ -1,60 +1,51 @@
 ---
-- name: Update package cache
-  apt:
-    update_cache: yes
-  become: yes
-
-- name: Install packages
+- name: Install nginx
   package:
-    name:
-      - nginx
-      - curl
+    name: nginx
     state: present
   become: yes
 
-- name: Remove default Nginx site
-  file:
-    path: /etc/nginx/sites-enabled/default
-    state: absent
+- name: Stop default nginx service
+  service:
+    name: nginx
+    state: stopped
   become: yes
-  notify: restart nginx
+  ignore_errors: yes
+
+- name: Create nginx config directory for this test
+  file:
+    path: "/tmp/nginx_{{ nginx_port }}"
+    state: directory
+    mode: '0755'
 
 - name: Configure Nginx load balancer
   template:
     src: nginx-lb.conf.j2
-    dest: /etc/nginx/sites-available/loadbalancer
-    backup: yes
-  become: yes
-  notify: restart nginx
+    dest: "/tmp/nginx_{{ nginx_port }}/nginx.conf"
 
-- name: Enable load balancer configuration
+- name: Create nginx log directory
   file:
-    src: /etc/nginx/sites-available/loadbalancer
-    dest: /etc/nginx/sites-enabled/loadbalancer
-    state: link
-  become: yes
-  notify: restart nginx
+    path: "/tmp/nginx_{{ nginx_port }}/logs"
+    state: directory
+    mode: '0755'
 
-- name: Configure firewall
-  ufw:
-    rule: allow
-    port: "{{ item }}"
-  loop:
-    - 22
-    - 80
-    - 443
+- name: Kill any existing nginx processes on this port
+  shell: "pkill -f 'nginx.*{{ nginx_port }}' || true"
+  ignore_errors: yes
+
+- name: Start nginx with custom config
+  shell: |
+    nginx -c /tmp/nginx_{{ nginx_port }}/nginx.conf
   become: yes
 
-- name: Start and enable Nginx
-  service:
-    name: nginx
-    state: started
-    enabled: yes
-  become: yes
+- name: Wait for nginx to start
+  wait_for:
+    port: "{{ nginx_port }}"
+    delay: 2
+    timeout: 30
 
 - name: Test load balancer configuration
   uri:
-    url: "http://{{ ansible_default_ipv4.address }}/health-lb"
+    url: "http://localhost:{{ nginx_port }}/health-lb"
     method: GET
   delegate_to: localhost
-  ignore_errors: yes

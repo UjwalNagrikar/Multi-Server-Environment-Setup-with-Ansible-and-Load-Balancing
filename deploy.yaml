@@ -1,35 +1,43 @@
 ---
 - name: Deploy Application Updates
-  hosts: localhost
-  become: yes
+  hosts: webservers
+  become: no
   serial: 1  # Rolling deployment - one server at a time
 
   vars:
-    app_version: "{{ app_version | default('latest') }}"
+    # FIXED: Remove the recursive reference
+    app_version: "latest"
 
   tasks:
     - name: Display deployment info
       debug:
         msg: "Deploying {{ app_name }} version {{ app_version }} to {{ inventory_hostname }}"
 
-    - name: Stop application service
-      service:
-        name: "{{ app_name }}"
-        state: stopped
+    - name: Kill existing Flask processes on this port
+      shell: "pkill -f 'python.*{{ app_port }}' || true"
+      ignore_errors: yes
 
     - name: Update application code
       copy:
         content: "{{ app_content }}"
         dest: "{{ app_dir }}/app.py"
-        owner: "{{ app_user }}"
-        group: "{{ app_user }}"
-        mode: '0644'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
         backup: yes
 
-    - name: Start application service
-      service:
-        name: "{{ app_name }}"
-        state: started
+    - name: Wait a moment for cleanup
+      pause:
+        seconds: 2
+
+    - name: Start Flask application
+      shell: |
+        cd {{ app_dir }}
+        export APP_PORT={{ app_port }}
+        nohup {{ app_dir }}/venv/bin/python app.py > {{ app_dir }}/app.log 2>&1 &
+        echo $! > {{ app_dir }}/app.pid
+      async: 10
+      poll: 0
 
     - name: Wait for application to start
       wait_for:
@@ -39,7 +47,7 @@
 
     - name: Verify application health
       uri:
-        url: "http://{{ ansible_default_ipv4.address }}/health"
+        url: "http://localhost:{{ app_port }}/health"
         method: GET
       delegate_to: localhost
       retries: 3
@@ -47,7 +55,7 @@
 
     - name: Deployment completed
       debug:
-        msg: "Successfully deployed to {{ inventory_hostname }}"
+        msg: "Successfully deployed to {{ inventory_hostname }} on port {{ app_port }}"
 
 - name: Verify Load Balancer After Deployment
   hosts: loadbalancers
@@ -55,7 +63,7 @@
   tasks:
     - name: Test load balancer after deployment
       uri:
-        url: "http://{{ ansible_default_ipv4.address }}/"
+        url: "http://localhost:{{ nginx_port }}/"
         method: GET
       delegate_to: localhost
       register: final_test

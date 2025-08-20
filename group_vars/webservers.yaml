@@ -1,31 +1,34 @@
 ---
 # Web server specific configuration
-nginx_port: 80
-app_user: webapp
-app_dir: /var/www/{{ app_name }}
+app_user: "{{ ansible_user }}"
+app_dir: "/tmp/{{ app_name }}_{{ app_port }}"
 
 # Sample application (simple Python Flask app)
 app_content: |
   from flask import Flask, jsonify
   import socket
+  import os
   
   app = Flask(__name__)
   
   @app.route('/')
   def hello():
       hostname = socket.gethostname()
+      port = os.environ.get('APP_PORT', 'unknown')
       return jsonify({
           'message': 'Hello from Web Server!',
           'server': hostname,
+          'port': port,
           'status': 'running'
       })
   
   @app.route('/health')
   def health():
-      return jsonify({'status': 'healthy'})
+      return jsonify({'status': 'healthy', 'port': os.environ.get('APP_PORT', 'unknown')})
   
   if __name__ == '__main__':
-      app.run(host='0.0.0.0', port={{ app_port }})
+      port = int(os.environ.get('APP_PORT', 3000))
+      app.run(host='0.0.0.0', port=port, debug=True)
 
 requirements_txt: |
   Flask==2.3.3

@@ -1,6 +1,6 @@
+---
 app_name: myapp
-app_port: 3000
-domain_name: example.local
+domain_name: localhost
 
 # Common packages
 common_packages:
@@ -10,9 +10,12 @@ common_packages:
   - htop
   - git
 
-# Security settings
+# Security settings (relaxed for localhost testing)
 allowed_ports:
   - 22
   - 80
   - 443
-  - "{{ app_port }}"
+  - 3001
+  - 3002
+  - 3003
+  - 8080
