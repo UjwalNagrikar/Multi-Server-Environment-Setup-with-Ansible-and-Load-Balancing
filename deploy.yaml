@@ -5,10 +5,6 @@
   serial: 1  # Rolling deployment - one server at a time
 
   vars:
-<<<<<<< HEAD
-    # FIXED: Remove the recursive reference
-=======
->>>>>>> 0d56f21 (Initial commit)
     app_version: "latest"
 
   tasks:
