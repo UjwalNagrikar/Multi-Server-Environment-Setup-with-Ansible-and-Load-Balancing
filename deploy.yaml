@@ -1,75 +1,105 @@
 ---
-- name: Deploy Application Updates
+- name: Deploy HTML Application
   hosts: webservers
-  become: no
-  serial: 1  # Rolling deployment - one server at a time
+  become: yes
 
   vars:
-    app_version: "latest"
+    app_dir: /var/www/myapp
+    html_content: |
+      <!DOCTYPE html>
+      <html>
+      <head><title>MyApp</title></head>
+      <body>
+        <h1>Welcome to MyApp!</h1>
+      </body>
+      </html>
 
   tasks:
-    - name: Display deployment info
-      debug:
-        msg: "Deploying {{ app_name }} version {{ app_version }} to {{ inventory_hostname }}"
-
-    - name: Kill existing Flask processes on this port
-      shell: "pkill -f 'python.*{{ app_port }}' || true"
-      ignore_errors: yes
-
-    - name: Update application code
-      copy:
-        content: "{{ app_content }}"
-        dest: "{{ app_dir }}/app.py"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: www-data
+        group: www-data
         mode: '0755'
-        backup: yes
 
-    - name: Wait a moment for cleanup
-      pause:
-        seconds: 2
+    - name: Deploy HTML file
+      copy:
+        content: "{{ html_content }}"
+        dest: "{{ app_dir }}/index.html"
+        owner: www-data
+        group: www-data
+        mode: '0644'
 
-    - name: Start Flask application
-      shell: |
-        cd {{ app_dir }}
-        export APP_PORT={{ app_port }}
-        nohup {{ app_dir }}/venv/bin/python app.py > {{ app_dir }}/app.log 2>&1 &
-        echo $! > {{ app_dir }}/app.pid
-      async: 10
-      poll: 0
+    - name: Install NGINX
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
 
-    - name: Wait for application to start
-      wait_for:
-        port: "{{ app_port }}"
-        delay: 3
-        timeout: 30
+    - name: Ensure NGINX is running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
 
-    - name: Verify application health
-      uri:
-        url: "http://localhost:{{ app_port }}/health"
-        method: GET
-      delegate_to: localhost
-      retries: 3
-      delay: 5
-
-    - name: Deployment completed
-      debug:
-        msg: "Successfully deployed to {{ inventory_hostname }} on port {{ app_port }}"
-
-- name: Verify Load Balancer After Deployment
+- name: Configure Load Balancer
   hosts: loadbalancers
-  
-  tasks:
-    - name: Test load balancer after deployment
-      uri:
-        url: "http://localhost:{{ nginx_port }}/"
-        method: GET
-      delegate_to: localhost
-      register: final_test
-      retries: 5
-      delay: 3
+  become: yes
 
-    - name: Show final test results
-      debug:
-        var: final_test.json
-      when: final_test.json is defined
+  vars:
+    lb_config_path: /etc/nginx/sites-available/myapp_lb.conf
+    upstream_name: myapp_servers
+    nginx_port: 80
+    backend_servers:
+      - 15.207.86.27
+      - 43.205.99.213
+
+  tasks:
+    - name: Install NGINX
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Create NGINX load balancer config
+      copy:
+        dest: "{{ lb_config_path }}"
+        content: |
+          upstream {{ upstream_name }} {
+          {% for server in backend_servers %}
+              server {{ server }}:80;
+          {% endfor %}
+          }
+
+          server {
+              listen {{ nginx_port }};
+
+              location / {
+                  proxy_pass http://{{ upstream_name }};
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+              }
+          }
+      notify:
+        - Reload NGINX
+
+    - name: Enable NGINX site
+      file:
+        src: "{{ lb_config_path }}"
+        dest: /etc/nginx/sites-enabled/myapp_lb.conf
+        state: link
+      notify:
+        - Reload NGINX
+
+    - name: Allow all traffic via UFW
+      ufw:
+        rule: allow
+        port: any
+        proto: tcp
+
+  handlers:
+    - name: Reload NGINX
+      service:
+        name: nginx
+        state: restarted
