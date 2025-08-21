@@ -3,7 +3,7 @@
   hosts: webservers
   become: no
   gather_facts: yes
-  
+
   tasks:
     - name: Wait for connection
       wait_for_connection:
@@ -25,7 +25,7 @@
   hosts: loadbalancers
   become: no
   gather_facts: yes
-  
+
   tasks:
     - name: Wait for connection
       wait_for_connection:
