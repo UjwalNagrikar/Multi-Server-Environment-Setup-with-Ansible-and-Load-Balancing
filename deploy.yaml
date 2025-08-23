@@ -7,10 +7,44 @@
     app_dir: /var/www/myapp
     html_content: |
       <!DOCTYPE html>
-      <html>
-      <head><title>MyApp</title></head>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>MyApp</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            text-align: center;
+          }
+          h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+          }
+          p {
+            font-size: 1.2em;
+          }
+          .card {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+          }
+        </style>
+      </head>
       <body>
-        <h1>Welcome to MyApp!</h1>
+        <div class="card">
+          <h1>🚀 Welcome to MyApp!</h1>
+          <p>Your web server is running successfully with Ansible + Nginx 🎉</p>
+        </div>
       </body>
       </html>
 
@@ -37,83 +71,46 @@
         state: present
         update_cache: yes
 
+    - name: Remove default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify:
+        - Reload Nginx
+
+    - name: Configure Nginx for MyApp
+      copy:
+        dest: /etc/nginx/sites-available/myapp.conf
+        content: |
+          server {
+              listen 80;
+              server_name _;
+              root {{ app_dir }};
+              index index.html;
+
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+          }
+      notify:
+        - Reload Nginx
+
+    - name: Enable MyApp site
+      file:
+        src: /etc/nginx/sites-available/myapp.conf
+        dest: /etc/nginx/sites-enabled/myapp.conf
+        state: link
+      notify:
+        - Reload Nginx
+
     - name: Ensure NGINX is running
       service:
         name: nginx
         state: started
         enabled: yes
 
-
-- name: Configure Load Balancer
-  hosts: loadbalancers
-  become: yes
-
-  vars:
-    lb_config_path: /etc/nginx/sites-available/myapp_lb.conf
-    upstream_name: myapp_servers
-    nginx_port: 80
-    backend_servers:
-      - 15.207.86.27
-      - 43.205.99.213
-
-  tasks:
-    - name: Install NGINX
-      apt:
-        name: nginx
-        state: present
-        update_cache: yes
-
-    - name: Create NGINX load balancer config
-      copy:
-        dest: "{{ lb_config_path }}"
-        content: |
-          upstream {{ upstream_name }} {
-          {% for server in backend_servers %}
-              server {{ server }}:80;
-          {% endfor %}
-          }
-
-          server {
-              listen {{ nginx_port }};
-
-              location / {
-                  proxy_pass http://{{ upstream_name }};
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-              }
-          }
-      notify:
-        - Reload NGINX
-
-    - name: Enable NGINX site
-      file:
-        src: "{{ lb_config_path }}"
-        dest: /etc/nginx/sites-enabled/myapp_lb.conf
-        state: link
-      notify:
-        - Reload NGINX
-
-    # ✅ Fixed firewall rules
-    - name: Allow SSH
-      ufw:
-        rule: allow
-        port: 22
-        proto: tcp
-
-    - name: Allow HTTP
-      ufw:
-        rule: allow
-        port: 80
-        proto: tcp
-
-    - name: Allow HTTPS
-      ufw:
-        rule: allow
-        port: 443
-        proto: tcp
-
   handlers:
-    - name: Reload NGINX
+    - name: Reload Nginx
       service:
         name: nginx
-        state: restarted
+        state: reloaded
