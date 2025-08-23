@@ -43,6 +43,7 @@
         state: started
         enabled: yes
 
+
 - name: Configure Load Balancer
   hosts: loadbalancers
   become: yes
@@ -92,10 +93,23 @@
       notify:
         - Reload NGINX
 
-    - name: Allow all traffic via UFW
+    # ✅ Fixed firewall rules
+    - name: Allow SSH
       ufw:
         rule: allow
-        port: any
+        port: 22
+        proto: tcp
+
+    - name: Allow HTTP
+      ufw:
+        rule: allow
+        port: 80
+        proto: tcp
+
+    - name: Allow HTTPS
+      ufw:
+        rule: allow
+        port: 443
         proto: tcp
 
   handlers:
