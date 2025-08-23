@@ -64,9 +64,9 @@ This project implements an **Infrastructure as Code (IaC)** solution using Ansib
 
 ### Web Stack
 - **Nginx**: Web server and load balancer
-- **Python 3.8+**: Backend programming language
-- **Flask 2.3.3**: Lightweight web framework
-- **Gunicorn 21.2.0**: WSGI HTTP server for Python applications
+- **HTML5**: Frontend markup language
+- **CSS3**: Styling with modern features (glassmorphism, gradients)
+- **JavaScript**: Client-side interactivity and animations
 
 ### DevOps Tools
 - **Bash Scripting**: Deployment automation scripts
@@ -123,20 +123,22 @@ This project implements an **Infrastructure as Code (IaC)** solution using Ansib
 ┌─────────────────────────────────────┐
 │           Web Servers               │
 │  ┌─────────────────────────────────┐│
-│  │      Application Server         ││
+│  │         Nginx Server            ││
 │  │  ┌─────────────────────────────┐││
-│  │  │        Flask App            │││
-│  │  │  - Dynamic content          │││
-│  │  │  - API endpoints            │││
-│  │  │  - Business logic           │││
+│  │  │      Static HTML App        │││
+│  │  │  - Dynamic server info      │││
+│  │  │  - Interactive UI           │││
+│  │  │  - Modern CSS styling       │││
+│  │  │  - JavaScript animations    │││
 │  │  └─────────────────────────────┘││
 │  │                                 ││
-│  │      Reverse Proxy              ││
+│  │      Web Server Features        ││
 │  │  ┌─────────────────────────────┐││
 │  │  │         Nginx               │││
 │  │  │  - Static content serving   │││
-│  │  │  - Request forwarding       │││
+│  │  │  - Health check endpoints   │││
 │  │  │  - Security headers         │││
+│  │  │  - Gzip compression         │││
 │  │  └─────────────────────────────┘││
 │  └─────────────────────────────────┘│
 └─────────────────────────────────────┘
@@ -145,8 +147,8 @@ This project implements an **Infrastructure as Code (IaC)** solution using Ansib
 ### Network Flow
 1. **Client Request** → Load Balancer (Port 80)
 2. **Load Balancer** → Web Server (Round-robin distribution)
-3. **Web Server Nginx** → Flask Application (Internal proxy)
-4. **Flask Application** → Response back through the chain
+3. **Web Server Nginx** → Static HTML Application (Direct serving)
+4. **HTML Application** → Dynamic content with server info displayed to client
 
 ## 📁 Project Structure
 
@@ -195,14 +197,12 @@ ansible-project/
 ```bash
 # On Control Machine (your local system)
 - Ansible >= 2.9
-- Python 3.6+
 - SSH client
 - curl (for testing)
 
 # On Target Servers (automatically installed by playbook)
-- Python 3.8+
 - Nginx
-- pip3
+- curl, htop, net-tools
 - systemd
 ```
 
@@ -407,6 +407,11 @@ curl http://13.201.91.97/health
 
 # Expected response:
 # OK - Server: web1, IP: 43.205.118.208
+
+# Test static content serving
+curl http://43.205.118.208/
+curl http://13.235.135.179/
+curl http://13.201.91.97/
 ```
 
 #### 2. Test Load Balancer
@@ -424,13 +429,16 @@ done
 
 #### 3. Test Web Application
 ```bash
-# Access the main application
+# Access the main HTML application
 curl http://43.205.118.208/
 
 # Check server status endpoint
 curl http://43.205.118.208/status
 
-# View in browser
+# Check server info endpoint
+curl http://43.205.118.208/server-info.json
+
+# View in browser (you'll see the beautiful multi-server demo page)
 open http://43.205.118.208/  # macOS
 xdg-open http://43.205.118.208/  # Linux
 ```
@@ -448,14 +456,17 @@ ansible all -m shell -a "htop -n 1"
 
 ### Check Application Logs
 ```bash
-# View web server logs
+# View web server access logs
 ansible webservers -m shell -a "tail -f /var/log/nginx/access.log"
 
-# View application logs  
-ansible webservers -m shell -a "tail -f /var/www/multi-server-demo/app.log"
+# View web server error logs
+ansible webservers -m shell -a "tail -f /var/log/nginx/error.log"
 
 # View load balancer logs
 ansible loadbalancers -m shell -a "tail -f /var/log/nginx/access.log"
+
+# Check application directory
+ansible webservers -m shell -a "ls -la /var/www/multi-server-demo/"
 ```
 
 ### System Status
@@ -516,10 +527,12 @@ ansible all -m shell -a "tail -20 /var/log/nginx/error.log"
 # Problem: Load balancer not distributing requests
 # Solution: Verify backend server connectivity
 
-# Check upstream servers from load balancer
-ansible loadbalancers -m shell -a "curl -s http://web1-ip/health"
+# Check if web servers are accessible from load balancer
+ansible loadbalancers -m shell -a "curl -s http://43.205.118.208/health"
+ansible loadbalancers -m shell -a "curl -s http://13.235.135.179/health"
+ansible loadbalancers -m shell -a "curl -s http://13.201.91.97/health"
 
-# Check nginx configuration
+# Check nginx upstream configuration
 ansible loadbalancers -m shell -a "nginx -T | grep upstream -A 10"
 ```
 
@@ -593,7 +606,9 @@ ansible-playbook site.yaml --limit loadbalancers
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## 📝 License
 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
