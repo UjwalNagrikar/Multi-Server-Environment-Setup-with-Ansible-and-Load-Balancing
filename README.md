@@ -2,6 +2,8 @@
 
 ![Ansible](https://img.shields.io/badge/Ansible-EE0000?style=for-the-badge&logo=ansible&logoColor=white)
 ![Nginx](https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)
 
 ## 📋 Table of Contents
@@ -75,24 +77,50 @@ This project implements an **Infrastructure as Code (IaC)** solution using Ansib
 ## 🏗 Architecture
 
 ### High-Level Architecture Diagram
+
+```mermaid
+graph TD
+    A[Internet Users] --> B[Load Balancer<br/>Nginx<br/>43.205.118.208:80]
+    
+    B -->|Round Robin| C[Web Server 1<br/>Static HTML + Nginx<br/>43.205.118.208:80]
+    B -->|Round Robin| D[Web Server 2<br/>Static HTML + Nginx<br/>13.235.135.179:80]  
+    B -->|Round Robin| E[Web Server 3<br/>Static HTML + Nginx<br/>13.201.91.97:80]
+    
+    C --> F[/var/www/multi-server-demo/<br/>index.html]
+    D --> G[/var/www/multi-server-demo/<br/>index.html]
+    E --> H[/var/www/multi-server-demo/<br/>index.html]
+    
+    style A fill:#e1f5fe
+    style B fill:#fff3e0
+    style C fill:#e8f5e8
+    style D fill:#e8f5e8
+    style E fill:#e8f5e8
+    style F fill:#fce4ec
+    style G fill:#fce4ec
+    style H fill:#fce4ec
 ```
-                    ┌─────────────────┐
-                    │   Internet      │
-                    └─────────┬───────┘
-                              │
-                    ┌─────────▼───────┐
-                    │  Load Balancer  │
-                    │    (Nginx)      │
-                    │  43.205.118.208 │
-                    └─────────┬───────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          │                   │                   │
-    ┌─────▼─────┐      ┌─────▼─────┐      ┌─────▼─────┐
-    │Web Server 1│      │Web Server 2│      │Web Server 3│
-    │   (Flask)  │      │   (Flask)  │      │   (Flask)  │
-    │43.205.118.208│   │13.235.135.179│   │13.201.91.97│
-    └───────────┘      └───────────┘      └───────────┘
+
+### ASCII Architecture Diagram
+```
+                        ┌─────────────────┐
+                        │    Internet     │
+                        │   (Clients)     │
+                        └─────────┬───────┘
+                                  │ HTTP Requests
+                        ┌─────────▼───────┐
+                        │ Load Balancer   │
+                        │    (Nginx)      │
+                        │ 43.205.118.208  │
+                        └─────────┬───────┘
+                                  │ Round Robin
+                ┌─────────────────┼─────────────────┐
+                │                 │                 │
+        ┌───────▼───────┐ ┌───────▼───────┐ ┌───────▼───────┐
+        │ Web Server 1  │ │ Web Server 2  │ │ Web Server 3  │
+        │ Static HTML   │ │ Static HTML   │ │ Static HTML   │
+        │    (Nginx)    │ │    (Nginx)    │ │    (Nginx)    │
+        │43.205.118.208 │ │13.235.135.179 │ │ 13.201.91.97  │
+        └───────────────┘ └───────────────┘ └───────────────┘
 ```
 
 ### Component Architecture
